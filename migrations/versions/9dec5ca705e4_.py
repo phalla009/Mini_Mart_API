@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: db01c490aa2a
+Revision ID: 9dec5ca705e4
 Revises: 
-Create Date: 2025-11-04 23:06:32.404311
+Create Date: 2025-11-05 22:09:49.260823
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'db01c490aa2a'
+revision = '9dec5ca705e4'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -23,6 +23,20 @@ def upgrade():
     sa.Column('name', sa.String(length=128), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('sales_report',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('report_type', sa.String(length=20), nullable=False),
+    sa.Column('start_date', sa.Date(), nullable=False),
+    sa.Column('end_date', sa.Date(), nullable=True),
+    sa.Column('criteria_type', sa.String(length=20), nullable=True),
+    sa.Column('criteria_id', sa.Integer(), nullable=True),
+    sa.Column('criteria_name', sa.String(length=100), nullable=True),
+    sa.Column('total_sales', sa.Float(), nullable=False),
+    sa.Column('total_qty', sa.Integer(), nullable=False),
+    sa.Column('total_invoices', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('user',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=128), nullable=True),
@@ -33,11 +47,11 @@ def upgrade():
     )
     op.create_table('invoice',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('invoice_number', sa.Integer(), nullable=True),
+    sa.Column('invoice_number', sa.String(length=255), nullable=True),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('customer_name', sa.String(length=128), nullable=True),
     sa.Column('customer_phone', sa.String(length=128), nullable=True),
-    sa.Column('date', sa.Date(), nullable=True),
+    sa.Column('create_at', sa.Date(), nullable=True),
     sa.Column('total_amount', sa.Float(), nullable=True),
     sa.Column('payment_method', sa.String(length=255), nullable=True),
     sa.Column('remark', sa.String(length=255), nullable=True),
@@ -62,6 +76,7 @@ def upgrade():
     sa.Column('qty', sa.Integer(), nullable=True),
     sa.Column('price', sa.Float(), nullable=True),
     sa.Column('subtotal', sa.Float(), nullable=True),
+    sa.Column('create_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['invoice_id'], ['invoice.id'], ),
     sa.ForeignKeyConstraint(['product_id'], ['product.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -75,5 +90,6 @@ def downgrade():
     op.drop_table('product')
     op.drop_table('invoice')
     op.drop_table('user')
+    op.drop_table('sales_report')
     op.drop_table('category')
     # ### end Alembic commands ###

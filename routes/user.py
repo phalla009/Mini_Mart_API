@@ -10,7 +10,7 @@ from model import User
 from werkzeug.security import check_password_hash, generate_password_hash
 @app.get('/users')
 def get_user():
-    sql = text("SELECT id, UPPER(name) as name , 'true' as active , email ,image FROM user")
+    sql = text("SELECT id, UPPER(name) as name , 'true' as active , email ,image,role FROM user")
     result = db.session.execute(sql).fetchall()
     rows = [dict(row._mapping) for row in result]
     if not rows:
@@ -19,7 +19,7 @@ def get_user():
 
 @app.get('/users/list')
 def get_all_users():
-    sql = text("SELECT id, UPPER(name) as name , 'true' as active , email, image FROM user")
+    sql = text("SELECT id, UPPER(name) as name , 'true' as active , email, image,role FROM user")
     result = db.session.execute(sql).fetchall()
     rows = [dict(row._mapping) for row in result]
     return jsonify(rows)
@@ -54,6 +54,8 @@ def create_user():
     name = request.form.get('name')
     password = request.form.get('password')
     email = request.form.get('email')
+    role = request.form.get('role')
+
     if not name:
         return jsonify({'Error': 'No user name provided'})
     if not password:
@@ -75,6 +77,7 @@ def create_user():
         name=name,
         password=generate_password_hash(password),
         email=email,
+        role=role,
         image=image_url
     )
     db.session.add(new_user)
@@ -84,6 +87,7 @@ def create_user():
                 'id': new_user.id,
                 'name': new_user.name,
                 'email': new_user.email,
+                'role': new_user.role,
                 'image': new_user.image
                 }
             }
@@ -97,6 +101,7 @@ def update_user(id):
     name = request.form.get('name')
     password = request.form.get('password')
     email = request.form.get('email')
+    role = request.form.get('role')
     if not name:
         return jsonify({'Error': 'No user name provided'})
     if not password:
@@ -107,6 +112,7 @@ def update_user(id):
     user.name = name
     user.password = password
     user.email = email
+    user.role = role
 
     image_url = None
     if 'image' in request.files:
@@ -122,6 +128,7 @@ def update_user(id):
         name=name,
         password=password,
         email=email,
+        role=role,
         image=image_url
     )
     db.session.commit()
@@ -130,6 +137,7 @@ def update_user(id):
                 'id': user.id,
                 'name': user.name,
                 'email': user.email,
+                'role': user.role,
                 'image': user.image
             }
     }

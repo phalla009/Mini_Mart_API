@@ -7,9 +7,13 @@ from app import app, create_access_token, db
 from flask import request, jsonify
 from model import User
 jwt_blocklist = set()
+
 def check_if_token_revoked(jwt_header, jwt_payload):
     jti = jwt_payload["jti"]
     return jti in jwt_blocklist
+
+
+
 # Register
 @app.post("/register")
 def register():
@@ -18,18 +22,18 @@ def register():
     email = (data.get("email") or "").strip()
     password = data.get("password") or ""
     image = data.get("image") or ""
+    role = data.get("role") or "user"  # optional role input
 
     if not all([name, email, password]):
         return jsonify({"msg": "Name, email, and password are required"}), 400
 
-    if User.query.filter_by(name=name).first() or User.query.filter_by(email=email).first():
+    if User.query.filter((User.name == name) | (User.email == email)).first():
         return jsonify({"msg": "User with this name or email already exists"}), 400
 
     hashed_password = generate_password_hash(password)
-    user = User(name=name, email=email, password=hashed_password, image=image)
+    user = User(name=name, email=email, password=hashed_password, image=image, role=role)
     db.session.add(user)
     db.session.commit()
-
     return jsonify({"msg": "User registered successfully"}), 201
 @app.post("/login")
 def login():
@@ -48,6 +52,7 @@ def login():
                     "name": user.name,
                     "email": user.email,
                     "image": user.image,
+                    "role": user.role
 
                 }
             )
@@ -74,6 +79,7 @@ def me():
         "name": claims.get("name"),
         "email": claims.get("email"),
         "image": claims.get("image"),
+        "role": claims.get("role"),
         }
     )
 

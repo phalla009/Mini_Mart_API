@@ -92,7 +92,7 @@ def create_invoices():
         return jsonify({'error': 'total_amount must be a number'})
 
     sql = text("""
-       INSERT INTO invoice (invoice_number, customer_name, customer_phone, date, 
+       INSERT INTO invoice (invoice_number, customer_name, customer_phone, create_at, 
                              total_amount, payment_method, remark, user_id)
         VALUES (:invoice_number, :customer_name, :customer_phone, :create_at, 
                 :total_amount, :payment_method, :remark, :user_id)
