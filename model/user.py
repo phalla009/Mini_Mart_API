@@ -7,3 +7,4 @@ class User(db.Model):
     email = db.Column(db.String(128))
     image = db.Column(db.String(255))
     role = db.Column(db.String(50), nullable=False, default='staff')
+    create_at = db.Column(db.DateTime)

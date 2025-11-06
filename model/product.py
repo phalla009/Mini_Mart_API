@@ -8,3 +8,4 @@ class Product(db.Model):
     price =db.Column(db.Float)
     description = db.Column(db.String(255))
     image = db.Column(db.String(255))
+    create_at = db.Column(db.Date)

@@ -1,4 +1,6 @@
 import uuid
+from datetime import datetime
+
 from app import app, db
 from flask import jsonify, request
 from sqlalchemy import text
@@ -9,7 +11,7 @@ import os
 @app.get('/products')
 def get_products():
     sql = text("""SELECT p.id, UPPER(p.name) as product_name , 'true' as active , '$' || p.price AS price , p.stock ,
-    p.description, p.image ,c.name as category_name FROM product as p
+    p.description, p.image ,c.name as category_name,p.create_at FROM product as p
     join category as c 
     on p.category_id = c.id
     """)
@@ -22,7 +24,7 @@ def get_products():
 @app.get('/products/list')
 def get_all_products():
     sql = text("""SELECT p.id, UPPER(p.name) as product_name , 'true' as active , '$' || p.price AS price , p.stock ,
-      p.description, p.image ,c.name as category_name FROM product as p
+      p.description, p.image ,c.name as category_name,p.create_at FROM product as p
       join category as c 
       on p.category_id = c.id
       """)
@@ -60,6 +62,9 @@ def create_products():
     stock = request.form.get('stock')
     description = request.form.get('description')
     category_id = request.form.get('category_id')
+    create_at = datetime.now()
+    formatted_date = create_at.strftime("%Y-%m-%d")
+    display_date = create_at.strftime("%d-%m-%Y")
 
     if not name:
         return {'error': 'No product name provided'}
@@ -87,8 +92,8 @@ def create_products():
         else:
             return {'error': 'Invalid image file type'}
     sql = text("""
-        INSERT INTO product (name, price, stock, description, image, category_id)
-        VALUES (:name, :price, :stock, :description, :image, :category_id)
+        INSERT INTO product (name, price, stock, description, image, category_id,create_at)
+        VALUES (:name, :price, :stock, :description, :image, :category_id,:create_at)
     """)
     db.session.execute(sql, {
         "name": name,
@@ -96,7 +101,8 @@ def create_products():
         "stock": stock,
         "description": description,
         "image": image_url,
-        "category_id": category_id
+        "category_id": category_id,
+        "create_at": formatted_date,
     })
     db.session.commit()
     return {
@@ -107,7 +113,8 @@ def create_products():
             "stock": stock,
             "description": description,
             "image": image_url,
-            "category_id": category_id
+            "category_id": category_id,
+            "create_at": display_date,
         }
     }
 
@@ -153,6 +160,7 @@ def update_product(id):
     product.description = description
     product.image = image_url
     product.category_id = category_id
+    product.create_at = datetime.now()
 
     db.session.commit()
     return jsonify({
@@ -164,14 +172,17 @@ def update_product(id):
             'stock': product.stock,
             'description': product.description,
             'image': product.image,
-            'category_id': product.category_id
+            'category_id': product.category_id,
+            'create_at': product.create_at.strftime("%d-%m-%Y")
+
+
         }
     })
 
 @app.delete('/products/delete')
 def delete_product():
     data = request.get_json()
-    product_id = data.get('id')
+    product_id = data.get('product_id')
     if not product_id:
         return jsonify({'error': 'Product ID is required'})
 
@@ -192,7 +203,8 @@ def delete_product():
             'stock': product.stock,
             'description': product.description,
             'image': product.image,
-            'category_id': product.category_id
+            'category_id': product.category_id,
+            'create_at': product.create_at.strftime("%d-%m-%Y")
         }
     }
 
