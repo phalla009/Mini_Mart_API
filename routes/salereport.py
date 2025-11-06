@@ -10,274 +10,208 @@ from app import db, app
 from datetime import datetime, timedelta, date
 from calendar import monthrange
 
-# ------------------- DAILY REPORT -------------------
-@app.get('/sales_report/generate/daily')
-def generate_daily_report():
-    # Get today date (no time)
+# ------------------- GENERATE SALE REPORT -------------------
+def generate_report(period='daily', criteria_type='sale'):
+    """
+    period: 'daily', 'weekly', 'monthly', 'all'
+    criteria_type: 'sale'
+    """
     today = date.today()
 
-    # Delete previous daily reports for today only
+    # ------------------- Determine date range -------------------
+    if period == 'daily':
+        start_date = end_date = today
+    elif period == 'weekly':
+        start_date = today - timedelta(days=today.weekday())
+        end_date = start_date + timedelta(days=6)
+    elif period == 'monthly':
+        start_date = date(today.year, today.month, 1)
+        _, last_day = monthrange(today.year, today.month)
+        end_date = date(today.year, today.month, last_day)
+    elif period == 'all':
+        start_date = date(2000,1,1)  # earliest possible date
+        end_date = today
+    else:
+        return jsonify({"error": "Invalid period"}), 400
+
+    # ------------------- Delete old report for this period & criteria -------------------
     db.session.query(SalesReport).filter(
-        SalesReport.report_type == 'daily',
-        SalesReport.start_date == today
+        SalesReport.report_type == period,
+        SalesReport.criteria_type == criteria_type,
+        SalesReport.start_date == start_date,
+        SalesReport.end_date == end_date
     ).delete()
     db.session.commit()
 
-    # Query only invoices created today
-    daily_query = (
-        db.session.query(
-            func.date(Invoice.create_at).label('report_date'),
-            func.sum(InvoiceDetail.qty * InvoiceDetail.price).label('total_sales'),
-            func.sum(InvoiceDetail.qty).label('total_qty'),
-            func.count(func.distinct(InvoiceDetail.invoice_id)).label('total_invoices')
+    # ------------------- Build query -------------------
+    if criteria_type == 'sale':
+        query = (
+            db.session.query(
+                func.sum(InvoiceDetail.qty * InvoiceDetail.price).label('total_sales'),
+                func.sum(InvoiceDetail.qty).label('total_qty'),
+                func.count(func.distinct(InvoiceDetail.invoice_id)).label('total_invoices')
+            )
+            .join(Invoice, Invoice.id == InvoiceDetail.invoice_id)
+            .filter(func.date(Invoice.create_at) >= start_date)
+            .filter(func.date(Invoice.create_at) <= end_date)
         )
-        .join(Invoice, Invoice.id == InvoiceDetail.invoice_id)
-        .filter(func.date(Invoice.create_at) == today)
-        .group_by(func.date(Invoice.create_at))
-    )
+        result = query.first()
+        total_sales = result.total_sales or 0
+        total_qty = result.total_qty or 0
+        total_invoices = result.total_invoices or 0
 
-    # Insert into SalesReport table
-    for row in daily_query.all():
-        report_date = row.report_date
-        if isinstance(report_date, str):
-            report_date = datetime.strptime(report_date, '%Y-%m-%d').date()
-
+        # Insert report
         db.session.add(SalesReport(
-            report_type='daily',
-            start_date=report_date,
-            end_date=report_date,
-            total_sales=row.total_sales or 0,
-            total_qty=row.total_qty or 0,
-            total_invoices=row.total_invoices or 0,
+            report_type=period,
+            criteria_type='sale',
+            criteria_name='Total Sales',
+            total_sales=total_sales,
+            total_qty=total_qty,
+            total_invoices=total_invoices,
+            start_date=start_date,
+            end_date=end_date,
             created_at=datetime.now()
         ))
+        db.session.commit()
 
-    db.session.commit()
+        report = SalesReport.query.filter_by(
+            report_type=period,
+            criteria_type='sale',
+            start_date=start_date,
+            end_date=end_date
+        ).first()
 
-    # Return today report
-    reports = SalesReport.query.filter_by(report_type='daily', start_date=today).all()
-    return jsonify([{
-        "start_date": r.start_date.isoformat(),
-        "end_date": r.end_date.isoformat(),
-        "total_sales": r.total_sales,
-        "total_qty": r.total_qty,
-        "total_invoices": r.total_invoices
-    } for r in reports])
+        return jsonify({
+            "criteria_name": report.criteria_name,
+            "total_sales": report.total_sales,
+            "total_qty": report.total_qty,
+            "total_invoices": report.total_invoices,
+            "start_date": report.start_date.isoformat(),
+            "end_date": report.end_date.isoformat()
+        })
 
+@app.get('/sales_report/generate/daily')
+def total_daily(): return generate_report('daily','sale')
 
-# ------------------- WEEKLY REPORT -------------------
 @app.get('/sales_report/generate/weekly')
-def generate_weekly_report():
-    # Get current year and current ISO week number
-    today = date.today()
-    year, week_num, _ = today.isocalendar()
+def total_weekly(): return generate_report('weekly','sale')
 
-    # Delete old weekly report for this week only
-    db.session.query(SalesReport).filter(
-        SalesReport.report_type == 'weekly',
-        SalesReport.start_date >= today - timedelta(days=today.weekday()),
-        SalesReport.end_date <= today + timedelta(days=6 - today.weekday())
-    ).delete()
-    db.session.commit()
-
-    # Calculate week start and end dates
-    week_start = today - timedelta(days=today.weekday())  # Monday
-    week_end = week_start + timedelta(days=6)              # Sunday
-
-    # Query only invoices in this week
-    weekly_query = (
-        db.session.query(
-            func.sum(InvoiceDetail.qty * InvoiceDetail.price).label('total_sales'),
-            func.sum(InvoiceDetail.qty).label('total_qty'),
-            func.count(func.distinct(InvoiceDetail.invoice_id)).label('total_invoices')
-        )
-        .join(Invoice, Invoice.id == InvoiceDetail.invoice_id)
-        .filter(func.date(Invoice.create_at) >= week_start)
-        .filter(func.date(Invoice.create_at) <= week_end)
-    )
-
-    result = weekly_query.first()
-    total_sales = result.total_sales or 0
-    total_qty = result.total_qty or 0
-    total_invoices = result.total_invoices or 0
-
-    # Add new report for this week
-    db.session.add(SalesReport(
-        report_type='weekly',
-        start_date=week_start,
-        end_date=week_end,
-        total_sales=total_sales,
-        total_qty=total_qty,
-        total_invoices=total_invoices,
-        created_at=datetime.now()
-    ))
-    db.session.commit()
-
-    # Return only current week's report
-    report = SalesReport.query.filter_by(
-        report_type='weekly',
-        start_date=week_start,
-        end_date=week_end
-    ).first()
-
-    if not report:
-        return jsonify({"message": "No data found for this week"}), 404
-
-    return jsonify({
-        "start_date": report.start_date.isoformat(),
-        "end_date": report.end_date.isoformat(),
-        "total_sales": report.total_sales,
-        "total_qty": report.total_qty,
-        "total_invoices": report.total_invoices
-    })
-
-
-# ------------------- MONTHLY REPORT -------------------
 @app.get('/sales_report/generate/monthly')
-def generate_monthly_report():
-    # Get current year and month
-    today = date.today()
-    year = today.year
-    month = today.month
-
-    # Delete old monthly report for this month only
-    first_day = date(year, month, 1)
-    _, last_day_num = monthrange(year, month)
-    last_day = date(year, month, last_day_num)
-
-    db.session.query(SalesReport).filter(
-        SalesReport.report_type == 'monthly',
-        SalesReport.start_date == first_day,
-        SalesReport.end_date == last_day
-    ).delete()
-    db.session.commit()
-
-    # Query only invoices from this month
-    monthly_query = (
-        db.session.query(
-            func.sum(InvoiceDetail.qty * InvoiceDetail.price).label('total_sales'),
-            func.sum(InvoiceDetail.qty).label('total_qty'),
-            func.count(func.distinct(InvoiceDetail.invoice_id)).label('total_invoices')
-        )
-        .join(Invoice, Invoice.id == InvoiceDetail.invoice_id)
-        .filter(func.strftime('%Y', Invoice.create_at) == str(year))
-        .filter(func.strftime('%m', Invoice.create_at) == f"{month:02d}")
-    )
-
-    result = monthly_query.first()
-    total_sales = result.total_sales or 0
-    total_qty = result.total_qty or 0
-    total_invoices = result.total_invoices or 0
-
-    # Add report for current month
-    db.session.add(SalesReport(
-        report_type='monthly',
-        start_date=first_day,
-        end_date=last_day,
-        total_sales=total_sales,
-        total_qty=total_qty,
-        total_invoices=total_invoices,
-        created_at=datetime.now()
-    ))
-    db.session.commit()
-
-    # Return only current month's report
-    report = SalesReport.query.filter_by(
-        report_type='monthly',
-        start_date=first_day,
-        end_date=last_day
-    ).first()
-
-    if not report:
-        return jsonify({"message": "No data found for this month"}), 404
-
-    return jsonify({
-        "start_date": report.start_date.isoformat(),
-        "end_date": report.end_date.isoformat(),
-        "total_sales": report.total_sales,
-        "total_qty": report.total_qty,
-        "total_invoices": report.total_invoices
-    })
+def total_monthly(): return generate_report('monthly','sale')
 
 
 # ------------------- PRODUCT CRITERIA REPORT -------------------
-@app.get('/sales_report/generate/product')
-def generate_product_report():
+def generate_total_report(period='daily'):
     today = date.today()
 
-    # Delete old product reports for today
+    if period == 'daily':
+        start_date = end_date = today
+    elif period == 'weekly':
+        start_date = today - timedelta(days=today.weekday())  # Monday
+        end_date = start_date + timedelta(days=6)            # Sunday
+    elif period == 'monthly':
+        start_date = date(today.year, today.month, 1)
+        _, last_day = monthrange(today.year, today.month)
+        end_date = date(today.year, today.month, last_day)
+    else:
+        return jsonify({"error": "Invalid period"}), 400
+
+    # Delete old report for this period
     db.session.query(SalesReport).filter(
-        SalesReport.report_type == 'criteria',
-        SalesReport.criteria_type == 'product',
-        SalesReport.start_date == today,
-        SalesReport.end_date == today
+        SalesReport.report_type == period,
+        SalesReport.start_date == start_date,
+        SalesReport.end_date == end_date
     ).delete()
     db.session.commit()
 
-    # Query invoices only for today, grouped by product
-    product_query = (
+    # Query total sales for the period
+    total_query = (
         db.session.query(
-            Product.id.label('criteria_id'),
-            Product.name.label('criteria_name'),
             func.sum(InvoiceDetail.qty * InvoiceDetail.price).label('total_sales'),
             func.sum(InvoiceDetail.qty).label('total_qty'),
             func.count(func.distinct(InvoiceDetail.invoice_id)).label('total_invoices')
         )
-        .join(InvoiceDetail, InvoiceDetail.product_id == Product.id)
         .join(Invoice, Invoice.id == InvoiceDetail.invoice_id)
-        .filter(func.date(Invoice.create_at) == today)
-        .group_by(Product.id)
+        .filter(func.date(Invoice.create_at) >= start_date)
+        .filter(func.date(Invoice.create_at) <= end_date)
     )
 
-    for row in product_query.all():
-        db.session.add(SalesReport(
-            report_type='criteria',
-            criteria_type='product',
-            criteria_id=row.criteria_id,
-            criteria_name=row.criteria_name,
-            total_sales=row.total_sales or 0,
-            total_qty=row.total_qty or 0,
-            total_invoices=row.total_invoices or 0,
-            start_date=today,
-            end_date=today,
-            created_at=datetime.now()
-        ))
+    result = total_query.first()
+    total_sales = result.total_sales or 0
+    total_qty = result.total_qty or 0
+    total_invoices = result.total_invoices or 0
+
+    # Add report to SalesReport table
+    db.session.add(SalesReport(
+        report_type=period,
+        criteria_type='total',
+        criteria_name='All Products',
+        total_sales=total_sales,
+        total_qty=total_qty,
+        total_invoices=total_invoices,
+        start_date=start_date,
+        end_date=end_date,
+        created_at=datetime.now()
+    ))
     db.session.commit()
 
-    # Return today's product reports
-    reports = SalesReport.query.filter_by(
-        report_type='criteria',
-        criteria_type='product',
-        start_date=today,
-        end_date=today
-    ).all()
+    # Return the report
+    report = SalesReport.query.filter_by(
+        report_type=period,
+        criteria_type='total',
+        start_date=start_date,
+        end_date=end_date
+    ).first()
 
-    return jsonify([{
-        "criteria_id": r.criteria_id,
-        "criteria_name": r.criteria_name,
-        "total_sales": r.total_sales,
-        "total_qty": r.total_qty,
-        "total_invoices": r.total_invoices,
-        "start_date": r.start_date.isoformat(),
-        "end_date": r.end_date.isoformat()
-    } for r in reports])
+    return jsonify({
+        "period": period,
+        "start_date": report.start_date.isoformat(),
+        "end_date": report.end_date.isoformat(),
+        "total_sales": report.total_sales,
+        "total_qty": report.total_qty,
+        "total_invoices": report.total_invoices
+    })
+@app.get('/sales_report/generate/product/daily')
+def generate_product_daily_report():
+    return generate_total_report(period='daily')
+@app.get('/sales_report/generate/product/weekly')
+def generate_product_weekly_report():
+    return generate_total_report(period='weekly')
+
+@app.get('/sales_report/generate/product/monthly')
+def generate_product_monthly_report():
+    return generate_total_report(period='monthly')
+
 
 
 # ------------------- CATEGORY CRITERIA REPORT -------------------
-@app.get('/sales_report/generate/category')
-def generate_category_report():
+
+def generate_category_report(period='daily'):
     today = date.today()
 
-    # Delete old category reports for today
+    # Determine date range based on period
+    if period == 'daily':
+        start_date = end_date = today
+    elif period == 'weekly':
+        start_date = today - timedelta(days=today.weekday())  # Monday
+        end_date = start_date + timedelta(days=6)            # Sunday
+    elif period == 'monthly':
+        start_date = date(today.year, today.month, 1)
+        _, last_day = monthrange(today.year, today.month)
+        end_date = date(today.year, today.month, last_day)
+    else:
+        return jsonify({"error": "Invalid period"}), 400
+
+    # Delete old reports for this period
     db.session.query(SalesReport).filter(
         SalesReport.report_type == 'criteria',
         SalesReport.criteria_type == 'category',
-        SalesReport.start_date == today,
-        SalesReport.end_date == today
+        SalesReport.start_date == start_date,
+        SalesReport.end_date == end_date
     ).delete()
     db.session.commit()
 
-    # Query invoices only for today, grouped by category
+    # Query invoices grouped by category within the period
     category_query = (
         db.session.query(
             Category.id.label('criteria_id'),
@@ -289,10 +223,12 @@ def generate_category_report():
         .join(Product, Product.category_id == Category.id)
         .join(InvoiceDetail, InvoiceDetail.product_id == Product.id)
         .join(Invoice, Invoice.id == InvoiceDetail.invoice_id)
-        .filter(func.date(Invoice.create_at) == today)  # 👈 filter by today
+        .filter(func.date(Invoice.create_at) >= start_date)
+        .filter(func.date(Invoice.create_at) <= end_date)
         .group_by(Category.id)
     )
 
+    # Add results to SalesReport
     for row in category_query.all():
         db.session.add(SalesReport(
             report_type='criteria',
@@ -302,18 +238,103 @@ def generate_category_report():
             total_sales=row.total_sales or 0,
             total_qty=row.total_qty or 0,
             total_invoices=row.total_invoices or 0,
-            start_date=today,
-            end_date=today,
+            start_date=start_date,
+            end_date=end_date,
             created_at=datetime.now()
         ))
     db.session.commit()
 
-    # Return today's category reports
+    # Return reports as JSON
     reports = SalesReport.query.filter_by(
         report_type='criteria',
         criteria_type='category',
-        start_date=today,
-        end_date=today
+        start_date=start_date,
+        end_date=end_date
+    ).all()
+
+    return jsonify([{
+        "criteria_id": r.criteria_id,
+        "criteria_name": r.criteria_name,
+        "total_sales": r.total_sales,
+        "total_qty": r.total_qty,
+        "total_invoices": r.total_invoices,
+        "start_date": r.start_date.isoformat(),
+        "end_date": r.end_date.isoformat()
+    } for r in reports])
+@app.get('/sales_report/generate/category/daily')
+def category_daily(): return generate_category_report('daily')
+
+@app.get('/sales_report/generate/category/weekly')
+def category_weekly(): return generate_category_report('weekly')
+
+@app.get('/sales_report/generate/category/monthly')
+def category_monthly(): return generate_category_report('monthly')
+
+
+# ------------------- USER CRITERIA REPORT -------------------
+def generate_user_report(period='daily'):
+    today = date.today()
+
+    # Determine date range
+    if period == 'daily':
+        start_date = end_date = today
+    elif period == 'weekly':
+        start_date = today - timedelta(days=today.weekday())  # Monday
+        end_date = start_date + timedelta(days=6)            # Sunday
+    elif period == 'monthly':
+        start_date = date(today.year, today.month, 1)
+        _, last_day = monthrange(today.year, today.month)
+        end_date = date(today.year, today.month, last_day)
+    else:
+        return jsonify({"error": "Invalid period"}), 400
+
+    # Delete old reports for this period
+    db.session.query(SalesReport).filter(
+        SalesReport.report_type == 'criteria',
+        SalesReport.criteria_type == 'user',
+        SalesReport.start_date == start_date,
+        SalesReport.end_date == end_date
+    ).delete()
+    db.session.commit()
+
+    # Query invoices grouped by user
+    user_query = (
+        db.session.query(
+            User.id.label('criteria_id'),
+            User.name.label('criteria_name'),
+            func.sum(InvoiceDetail.qty * InvoiceDetail.price).label('total_sales'),
+            func.sum(InvoiceDetail.qty).label('total_qty'),
+            func.count(func.distinct(InvoiceDetail.invoice_id)).label('total_invoices')
+        )
+        .join(Invoice, Invoice.user_id == User.id)
+        .join(InvoiceDetail, InvoiceDetail.invoice_id == Invoice.id)
+        .filter(func.date(Invoice.create_at) >= start_date)
+        .filter(func.date(Invoice.create_at) <= end_date)
+        .group_by(User.id)
+    )
+
+    # Add reports
+    for row in user_query.all():
+        db.session.add(SalesReport(
+            report_type='criteria',
+            criteria_type='user',
+            criteria_id=row.criteria_id,
+            criteria_name=row.criteria_name,
+            total_sales=row.total_sales or 0,
+            total_qty=row.total_qty or 0,
+            total_invoices=row.total_invoices or 0,
+            start_date=start_date,
+            end_date=end_date,
+            created_at=datetime.now()
+        ))
+    db.session.commit()
+
+    # Return reports as JSON
+    reports = SalesReport.query.filter_by(
+        report_type='criteria',
+        criteria_type='user',
+        start_date=start_date,
+        end_date=end_date
     ).all()
 
     return jsonify([{
@@ -326,43 +347,11 @@ def generate_category_report():
         "end_date": r.end_date.isoformat()
     } for r in reports])
 
-# ------------------- USER CRITERIA REPORT -------------------
-@app.get('/sales_report/generate/user')
-def generate_user_report():
-    db.session.query(SalesReport).filter(SalesReport.report_type=='criteria', SalesReport.criteria_type=='user').delete()
-    db.session.commit()
+@app.get('/sales_report/generate/user/daily')
+def user_daily(): return generate_user_report('daily')
 
-    today = date.today()
-    user_query = db.session.query(
-        User.id.label('criteria_id'),
-        User.name.label('criteria_name'),
-        func.sum(InvoiceDetail.qty * InvoiceDetail.price).label('total_sales'),
-        func.sum(InvoiceDetail.qty).label('total_qty'),
-        func.count(func.distinct(InvoiceDetail.invoice_id)).label('total_invoices')
-    ).join(Invoice, Invoice.user_id == User.id
-    ).join(InvoiceDetail, InvoiceDetail.invoice_id == Invoice.id
-    ).group_by(User.id)
+@app.get('/sales_report/generate/user/weekly')
+def user_weekly(): return generate_user_report('weekly')
 
-    for row in user_query.all():
-        db.session.add(SalesReport(
-            report_type='criteria',
-            criteria_type='user',
-            criteria_id=row.criteria_id,
-            criteria_name=row.criteria_name,
-            total_sales=row.total_sales or 0,
-            total_qty=row.total_qty or 0,
-            total_invoices=row.total_invoices or 0,
-            start_date=today,
-            end_date=today
-        ))
-    db.session.commit()
-    reports = SalesReport.query.filter_by(report_type='criteria', criteria_type='user').all()
-    return jsonify([{
-        "criteria_id": r.criteria_id,
-        "criteria_name": r.criteria_name,
-        "total_sales": r.total_sales,
-        "total_qty": r.total_qty,
-        "total_invoices": r.total_invoices,
-        "start_date": r.start_date.isoformat(),
-        "end_date": r.end_date.isoformat()
-    } for r in reports])
+@app.get('/sales_report/generate/user/monthly')
+def user_monthly(): return generate_user_report('monthly')
