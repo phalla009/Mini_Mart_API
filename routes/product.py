@@ -8,44 +8,55 @@ from model import Product
 from werkzeug.utils import secure_filename
 import os
 
+
+def get_full_image_url(image_path):
+    if not image_path:
+        return None
+    return request.host_url.rstrip('/') + image_path
+
 @app.get('/products')
+@app.get('/products/list')
 def get_products():
-    sql = text("""SELECT p.id, UPPER(p.name) as product_name , 'true' as active , '$' || p.price AS price , p.stock ,
-    p.description, p.image ,c.name as category_name,p.create_at FROM product as p
-    join category as c 
-    on p.category_id = c.id
+    sql = text("""
+        SELECT p.id, UPPER(p.name) as product_name, 'true' as active, 
+               '$' || p.price AS price, p.stock, p.description, 
+               p.image, c.name as category_name, p.create_at
+        FROM product AS p
+        JOIN category AS c ON p.category_id = c.id
     """)
     result = db.session.execute(sql).fetchall()
-    rows = [dict(row._mapping) for row in result]
-    if not rows:
+    if not result:
         return jsonify({'message': 'No products found'})
+
+    rows = []
+    for row in result:
+        r = dict(row._mapping)
+        r['image'] = get_full_image_url(r['image'])
+        rows.append(r)
+
     return jsonify(rows)
 
-@app.get('/products/list')
-def get_all_products():
-    sql = text("""SELECT p.id, UPPER(p.name) as product_name , 'true' as active , '$' || p.price AS price , p.stock ,
-      p.description, p.image ,c.name as category_name,p.create_at FROM product as p
-      join category as c 
-      on p.category_id = c.id
-      """)
-    result = db.session.execute(sql).fetchall()
-    rows = [dict(row._mapping) for row in result]
-    if not rows:
-        return jsonify({'message': 'No products found'})
-    return jsonify(rows)
-
+# --- GET product by ID ---
 @app.get('/products/list/<int:id>')
 def get_product_by_id(id):
-    sql = text("""SELECT p.id, UPPER(p.name) as product_name , 'true' as active , '$' || p.price AS price , p.stock ,
-      p.description, p.image ,c.name as category_name FROM product as p
-      join category as c 
-      on p.category_id = c.id
-      WHERE p.id = :id
-      """)
+    sql = text("""
+        SELECT p.id, UPPER(p.name) as product_name, 'true' as active, 
+               '$' || p.price AS price, p.stock, p.description, 
+               p.image, c.name as category_name
+        FROM product AS p
+        JOIN category AS c ON p.category_id = c.id
+        WHERE p.id = :id
+    """)
     result = db.session.execute(sql, {'id': id}).fetchall()
     if not result:
-        return jsonify({'error': 'Products not found'})
-    rows = [dict(row._mapping) for row in result]
+        return jsonify({'error': 'Product not found'})
+
+    rows = []
+    for row in result:
+        r = dict(row._mapping)
+        r['image'] = get_full_image_url(r['image'])
+        rows.append(r)
+
     return jsonify(rows)
 
 UPLOAD_FOLDER = 'static/images'
