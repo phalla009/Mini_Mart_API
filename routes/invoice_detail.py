@@ -8,7 +8,7 @@ from model.invoice_detail import InvoiceDetail
 from werkzeug.utils import secure_filename
 import os
 
-@app.get('/invoice_details')
+@app.get('/api/invoice_details')
 def get_invoice_details():
     sql = text("""SELECT id.id, id.invoice_id,id.product_id,id.qty, id.price,id.subtotal ,id.create_at FROM invoice_detail as id
             JOIN product as p
@@ -22,7 +22,7 @@ def get_invoice_details():
         return jsonify({'message': 'No invoice details found'})
     return jsonify(rows)
 
-@app.get('/invoice_details/list')
+@app.get('/api/invoice_details/list')
 def get_all_invoice_details():
     sql = text("""SELECT id.id, id.invoice_id,id.product_id,id.qty, id.price,id.subtotal ,id.create_at FROM invoice_detail as id
             JOIN product as p
@@ -36,7 +36,7 @@ def get_all_invoice_details():
         return jsonify({'message': 'No invoice details found'})
     return jsonify(rows)
 
-@app.get('/invoice_details/list/<int:id>')
+@app.get('/api/invoice_details/list/<int:id>')
 def get_invoice_details_by_id(id):
     sql = text("""SELECT id.id, id.invoice_id,id.product_id,id.qty, id.price,id.subtotal ,id.create_at FROM invoice_detail as id
             JOIN product as p
@@ -51,7 +51,7 @@ def get_invoice_details_by_id(id):
     rows = [dict(row._mapping) for row in result]
     return jsonify(rows)
 
-@app.post('/invoice_details/create')
+@app.post('/api/invoice_details/create')
 def create_invoice_details():
     data = request.get_json()
     if not data:
@@ -114,7 +114,7 @@ def create_invoice_details():
         }
     }
 
-@app.put('/invoice_details/update')
+@app.put('/api/invoice_details/update')
 def update_invoice_details():
     data = request.get_json()
     invoice_detail_id = data.get('invoice_detail_id')
@@ -177,7 +177,7 @@ def update_invoice_details():
         }
     }
 
-@app.delete('/invoice_details/delete')
+@app.delete('/api/invoice_details/delete')
 def delete_invoice_details():
     data = request.get_json()
     invoice_detail_id = data.get('invoice_detail_id')

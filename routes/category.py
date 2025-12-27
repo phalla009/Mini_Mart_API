@@ -12,7 +12,7 @@ import uuid
 from model import Category
 
 
-@app.get('/category')
+@app.get('/api/category')
 def get_category():
     sql = text("SELECT id, UPPER(name) as name , 'true' as active,create_at FROM category")
     result = db.session.execute(sql).fetchall()
@@ -21,7 +21,7 @@ def get_category():
         return jsonify({'message': 'No category found'})
     return jsonify(rows)
 
-@app.get('/category/list')
+@app.get('/api/category/list')
 def get_all_category():
     sql = text("SELECT id, UPPER(name) as name , 'true' as active,create_at FROM category")
     result = db.session.execute(sql).fetchall()
@@ -30,7 +30,7 @@ def get_all_category():
         return jsonify({'message': 'No category found'})
     return jsonify(rows)
 
-@app.get('/category/list/<int:id>')
+@app.get('/api/category/list/<int:id>')
 def get_category_by_id(id):
     category = Category.query.get_or_404(id)
     return jsonify({
@@ -48,7 +48,7 @@ def sql_fetch(category_id: int):
         return None
     return dict(result._mapping)
 
-@app.post('/category/create')
+@app.post('/api/category/create')
 def add_category():
     data = request.get_json()
     if 'name' not in data:
@@ -70,7 +70,7 @@ def add_category():
     })
 
 
-@app.put('/category/update')
+@app.put('/api/category/update')
 def update_category():
     data = request.get_json()
     category_id = data.get('category_id')
@@ -107,7 +107,7 @@ def update_category():
     })
 
 
-@app.delete('/category/delete')
+@app.delete('/api/category/delete')
 def delete_category():
     data = request.get_json()
     category_id = data.get('category_id')

@@ -10,7 +10,7 @@ import uuid
 from model import User
 
 from werkzeug.security import check_password_hash, generate_password_hash
-@app.get('/users')
+@app.get('/api/users')
 def get_user():
     sql = text("SELECT id, UPPER(name) as name , 'true' as active , email ,image,role,create_at FROM user")
     result = db.session.execute(sql).fetchall()
@@ -19,7 +19,7 @@ def get_user():
         return jsonify({'message': 'No users found'})
     return jsonify(rows)
 
-@app.get('/users/list')
+@app.get('/api/users/list')
 def get_all_users():
     sql = text("SELECT id, UPPER(name) as name , 'true' as active , email, image,role,create_at FROM user")
     result = db.session.execute(sql).fetchall()
@@ -33,7 +33,7 @@ def fetch_user_by_id(user_id: int):
         return None
     return dict(result._mapping)
 
-@app.get('/users/list/<int:user_id>')
+@app.get('/api/users/list/<int:user_id>')
 def get_user_id(user_id: int):
     user = fetch_user_by_id(user_id)
     if not user:
@@ -51,7 +51,7 @@ def allowed_file(filename):
 def is_valid_email(email):
     pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
     return re.match(pattern, email) is not None
-@app.post('/users/create')
+@app.post('/api/users/create')
 def create_user():
     name = request.form.get('name')
     password = request.form.get('password')
@@ -102,7 +102,7 @@ def create_user():
                 }
             }
 
-@app.put('/users/update/<int:id>')
+@app.put('/api/users/update/<int:id>')
 def update_user(id):
     user = User.query.get(id)
     if not user:
@@ -158,7 +158,7 @@ def update_user(id):
             }
     }
 
-@app.delete('/users/delete')
+@app.delete('/api/users/delete')
 def delete_user():
     user = request.get_json()
     if not user or 'user_id' not in user:

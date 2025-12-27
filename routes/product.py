@@ -14,8 +14,8 @@ def get_full_image_url(image_path):
         return None
     return request.host_url.rstrip('/') + image_path
 
-@app.get('/products')
-@app.get('/products/list')
+@app.get('/api/products')
+@app.get('/api/products/list')
 def get_products():
     sql = text("""
         SELECT p.id,
@@ -66,7 +66,7 @@ def get_products():
 
 
 # --- GET product by ID ---
-@app.get('/products/list/<int:id>')
+@app.get('/api/products/list/<int:id>')
 def get_product_by_id(id):
     sql = text("""
         SELECT p.id, UPPER(p.name) as product_name, 'true' as active, 
@@ -95,7 +95,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-@app.post('/products/create')
+@app.post('/api/products/create')
 def create_products():
     name = request.form.get('name')
     price = request.form.get('price')
@@ -158,7 +158,7 @@ def create_products():
         }
     }
 
-@app.put('/products/update/<int:id>')
+@app.put('/api/products/update/<int:id>')
 def update_product(id):
     product = Product.query.get(id)
     if not product:
@@ -219,7 +219,7 @@ def update_product(id):
         }
     })
 
-@app.delete('/products/delete')
+@app.delete('/api/products/delete')
 def delete_product():
     data = request.get_json()
     product_id = data.get('product_id')

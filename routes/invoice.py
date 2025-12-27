@@ -8,7 +8,7 @@ from model import Product, Invoice
 from werkzeug.utils import secure_filename
 import os
 
-@app.get('/invoices')
+@app.get('/api/invoices')
 def get_invoices():
     sql = text("""SELECT i.id, i.invoice_number  , 'true' as active , i.customer_name,i.customer_phone,i.create_at as create_date, 
                 i.total_amount,i.payment_method,i.remark , u.name as user_name FROM invoice as i
@@ -21,7 +21,7 @@ def get_invoices():
         return jsonify({'message': 'No invoices found'})
     return jsonify(rows)
 
-@app.get('/invoices/list')
+@app.get('/api/invoices/list')
 def get_all_invoices():
     sql = text("""SELECT i.id, i.invoice_number  , 'true' as active , i.customer_name,i.customer_phone,i.create_at as create_date, 
                 i.total_amount,i.payment_method,i.remark , u.name as user_name FROM invoice as i
@@ -34,7 +34,7 @@ def get_all_invoices():
         return jsonify({'message': 'No invoices found'})
     return jsonify(rows)
 
-@app.get('/invoices/list/<int:id>')
+@app.get('/api/invoices/list/<int:id>')
 def get_invoice_by_id(id):
     sql = text("""SELECT i.id, i.invoice_number  , 'true' as active , i.customer_name,i.customer_phone,i.create_at as create_date, 
                 i.total_amount,i.payment_method,i.remark , u.name as user_name FROM invoice as i
@@ -49,7 +49,7 @@ def get_invoice_by_id(id):
     return jsonify(rows)
 
 
-@app.post('/invoices/create')
+@app.post('/api/invoices/create')
 def create_invoices():
     data = request.get_json()
     if not data:
@@ -122,7 +122,7 @@ def create_invoices():
         }
     }
 
-@app.put('/invoices/update')
+@app.put('/api/invoices/update')
 def update_invoices():
     data = request.get_json()
     invoice_id = data.get('invoice_id')
@@ -200,7 +200,7 @@ def update_invoices():
         }
     }
 
-@app.delete('/invoices/delete')
+@app.delete('/api/invoices/delete')
 def delete_invoices():
     data = request.get_json()
     invoice_id = data.get('invoice_id')

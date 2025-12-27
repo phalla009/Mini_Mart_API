@@ -90,13 +90,13 @@ def generate_report(period='daily', criteria_type='sale'):
             "end_date": report.end_date.isoformat()
         })
 
-@app.get('/sales_report/generate/daily')
+@app.get('/api/sales_report/generate/daily')
 def total_daily(): return generate_report('daily','sale')
 
-@app.get('/sales_report/generate/weekly')
+@app.get('/api/sales_report/generate/weekly')
 def total_weekly(): return generate_report('weekly','sale')
 
-@app.get('/sales_report/generate/monthly')
+@app.get('/api/sales_report/generate/monthly')
 def total_monthly(): return generate_report('monthly','sale')
 
 
@@ -171,14 +171,14 @@ def generate_total_report(period='daily'):
         "total_qty": report.total_qty,
         "total_invoices": report.total_invoices
     })
-@app.get('/sales_report/generate/product/daily')
+@app.get('/api/sales_report/generate/product/daily')
 def generate_product_daily_report():
     return generate_total_report(period='daily')
-@app.get('/sales_report/generate/product/weekly')
+@app.get('/api/sales_report/generate/product/weekly')
 def generate_product_weekly_report():
     return generate_total_report(period='weekly')
 
-@app.get('/sales_report/generate/product/monthly')
+@app.get('/api/sales_report/generate/product/monthly')
 def generate_product_monthly_report():
     return generate_total_report(period='monthly')
 
@@ -261,13 +261,13 @@ def generate_category_report(period='daily'):
         "start_date": r.start_date.isoformat(),
         "end_date": r.end_date.isoformat()
     } for r in reports])
-@app.get('/sales_report/generate/category/daily')
+@app.get('/api/sales_report/generate/category/daily')
 def category_daily(): return generate_category_report('daily')
 
-@app.get('/sales_report/generate/category/weekly')
+@app.get('/api/sales_report/generate/category/weekly')
 def category_weekly(): return generate_category_report('weekly')
 
-@app.get('/sales_report/generate/category/monthly')
+@app.get('/api/sales_report/generate/category/monthly')
 def category_monthly(): return generate_category_report('monthly')
 
 
@@ -347,11 +347,11 @@ def generate_user_report(period='daily'):
         "end_date": r.end_date.isoformat()
     } for r in reports])
 
-@app.get('/sales_report/generate/user/daily')
+@app.get('/api/sales_report/generate/user/daily')
 def user_daily(): return generate_user_report('daily')
 
-@app.get('/sales_report/generate/user/weekly')
+@app.get('/api/sales_report/generate/user/weekly')
 def user_weekly(): return generate_user_report('weekly')
 
-@app.get('/sales_report/generate/user/monthly')
+@app.get('/api/sales_report/generate/user/monthly')
 def user_monthly(): return generate_user_report('monthly')
