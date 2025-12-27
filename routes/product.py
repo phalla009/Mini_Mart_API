@@ -18,23 +18,52 @@ def get_full_image_url(image_path):
 @app.get('/products/list')
 def get_products():
     sql = text("""
-        SELECT p.id, UPPER(p.name) as product_name, 'true' as active, 
-               '$' || p.price AS price, p.stock, p.description, 
-               p.image, c.name as category_name, p.create_at
+        SELECT p.id,
+               UPPER(p.name) AS product_name,
+               p.price,
+               p.stock,
+               p.description,
+               p.image,
+               c.name AS category_name,
+               p.create_at
         FROM product AS p
         JOIN category AS c ON p.category_id = c.id
     """)
+
     result = db.session.execute(sql).fetchall()
     if not result:
-        return jsonify({'message': 'No products found'})
+        return jsonify({
+            "total_products": 0,
+            "total_categories": 0,
+            "total_price": 0,
+            "total_stock": 0,
+            "products": []
+        })
 
     rows = []
+    total_price = 0
+    total_stock = 0
+    categories = set()
+
     for row in result:
         r = dict(row._mapping)
         r['image'] = get_full_image_url(r['image'])
+
+        total_price += r['price']
+        total_stock += r['stock']
+        categories.add(r['category_name'])
+
         rows.append(r)
 
-    return jsonify(rows)
+    return jsonify({
+        "total_products": len(rows),
+        "total_categories": len(categories),
+        "total_price": f"${total_price:.2f}",
+        "total_stock": total_stock,
+        "products": rows
+    })
+
+
 
 # --- GET product by ID ---
 @app.get('/products/list/<int:id>')
