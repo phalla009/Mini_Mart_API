@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import timedelta
@@ -24,8 +24,8 @@ jwt = JWTManager(app)
 
 
 @app.route('/')
-def hello_world():  # put application's code here
-    return 'Hello World!'
+def home():
+    return render_template('index.html')
 
 
 if __name__ == '__main__':
