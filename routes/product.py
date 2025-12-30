@@ -1,13 +1,11 @@
 import uuid
 from datetime import datetime
-
 from app import app, db
 from flask import jsonify, request
 from sqlalchemy import text
 from model import Product
 from werkzeug.utils import secure_filename
 import os
-
 
 def get_full_image_url(image_path):
     if not image_path:

@@ -1,4 +1,5 @@
 from flask import Flask, request, render_template
+from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from datetime import timedelta
@@ -9,6 +10,7 @@ from flask_jwt_extended import (
 from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
+cors = CORS(app, resources={r"/api/*": {"origins": "*"}})
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///app.db'
 
 db = SQLAlchemy(app)
