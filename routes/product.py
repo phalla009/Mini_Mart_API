@@ -55,14 +55,7 @@ def get_products():
 
         rows.append(r)
 
-    return jsonify({
-        "total_products": len(rows),
-        "total_categories": len(categories),
-        "total_price": f"${total_price:.2f}",
-        "total_stock": total_stock,
-        "products": rows
-    })
-
+    return jsonify(rows)
 
 
 # --- GET product by ID ---
